@@ -5,7 +5,7 @@ import os
 import scipy.optimize as opt 
 import numpy as np
 import math
-
+cafe_average =  {'domestic':30, 'Asian': 100, 'European':70}
 #book now contains the entire excel workbook 
 dict = pyexcel.get_book_dict(file_name="Input_Data.xls")
 macro = np.asarray(dict['Macro'])
@@ -21,7 +21,7 @@ book = pyexcel.get_book(file_name="Input_Data.xls")
 startYear = 2015
 normalFactor = 3000.0 * 1000.0
 numVolumeVar = 1
-num_of_iterations = 10
+num_of_iterations = 1
 gamma = 0.1
 #omiga = 0.93
 
@@ -42,7 +42,7 @@ scenario_rec = temp.to_records()
 
 #order by row 0
 temp = book['Constraints']
-temp.name_rows_by_column(0)
+temp.name_columns_by_row(0)
 constraints_rec = temp.to_records()
 
 #order by row 0
@@ -106,17 +106,53 @@ for eachrec in scenario_rec:
 #share calculation to be verified    
 for eachrec in scenario_rec:
     eachrec['new_shares'] = (eachrec['e_vj_phi'] * np.power(sums['sum_basegroup'+str(eachrec['fuGroupId'])],(eachrec['phi']/eachrec['rho']-1)) * np.power(sums['sum_subgroup'+str(eachrec['tGroupId'])],(eachrec['rho']/eachrec['sigma']-1)) * np.power(sums['sum_group'+str(eachrec['bGroupId'])],(eachrec['sigma']-1))) / (np.power(sums['sum_group'+str(eachrec['bGroupId'])],eachrec['sigma'])+1)
-    print (eachrec['modname'], eachrec['new_shares'])
-    
+    print (eachrec['modname'], eachrec['new_shares'], eachrec['new_shares']*eachrec['population'])
+    print('\n')
 ## MARKET CLEARANCE PART
 '''
 Repear stuff from above with changed parameters?
 Maybe do this n times and reduce the gap between predicted and what clears the
 market?
 #'''
-#for i in range (num_of_iterations):
-#    flag = 0
-#    for eachrec in scenario_rec:
+for i in range (num_of_iterations):
+    for each_oem in oems:
+        
+        flag = 0
+        bnds = ()
+        A, C = [], []
+        arow = []
+        sum_q, bnumerator, bdenom = 0, 0, 0
+        for eachrec in scenario_rec:
+            if eachrec['oem'] == each_oem:
+                #C has to have all the profit values that are to MAX for each quantity
+                C.append((eachrec['price_2']-eachrec['Cost'])*-1)
+                
+                #bounds are the respective bounds of quantity
+                bound = (int(eachrec['ProdMin']),int(eachrec['ProdMax']))
+                bnds = bnds + (bound,)
+                arow.append(eachrec['fueleff'])
+                #bnumerator += eachrec['new_shares']*eachrec['population'] * eachrec['fueleff']
+                #bdenom +=eachrec['fueleff']
+                sum_q += eachrec['new_shares']*eachrec['population']
+        A=[]
+        A.append(arow)
+        B = []
+        B.append(cafe_average[each_oem] * sum_q)
+        
+        #A's first row has to have the coefficients of sigma qi = 1         
+            #B has the value of (sigma(qi * ei)/sigma(qi))
+                
+        #maximization
+        res = opt.linprog(C, A_ub=A, b_ub=B, bounds = bnds, options={"disp": True})
+        avg = 0
+        if res['success']:
+            for each_res in range(len(res['x'])):
+                avg += A[0][each_res] * res['x'][each_res]
+            print (avg / sum_q)
+        print (each_oem, res['x'], C, A, B, bnds)
+        print('\n')
+        
+#        
 #        s0+=eachrec['sj']
 #        #if #comparision between sj & sj_new on an average for all is less than 1% break
 #        if math.abs(eachrec['sj_new']-eachrec['sj']) / eachrec['sj'] > 0.01:
@@ -138,4 +174,4 @@ market?
 #        
 #        eachrec['delta'] = delta
 #        eachrec['vj'] = delta + eachrec['alpha'] * eachrec['price']
-#        
+        
