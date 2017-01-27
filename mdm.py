@@ -5,17 +5,15 @@ import os
 import scipy.optimize as opt 
 import numpy as np
 import math
-cafe_average =  {'domestic':30, 'Asian': 100, 'European':70}
+cafe_average =  {'domestic':60, 'Asian': 100, 'European':70}
+
 #book now contains the entire excel workbook 
 dict = pyexcel.get_book_dict(file_name="Input_Data.xls")
-macro = np.asarray(dict['Macro'])
-vehdata = np.asarray(dict['VEHDATA'])
+
 tgroup = np.asarray(dict['tGROUP'])
 fgroup = np.asarray(dict['fGROUP'])
 bgroup = np.asarray(dict['bGROUP'])
 scenario = np.asarray(dict['Scenario'])
-constraints = np.asarray(dict['Constraints'])
-Basedelta = np.asarray(dict['BASEDELTA'])
 
 book = pyexcel.get_book(file_name="Input_Data.xls")
 startYear = 2015
@@ -25,42 +23,24 @@ num_of_iterations = 1
 gamma = 0.1
 #omiga = 0.93
 
-#order by column 0                                             
-temp = book['Macro']
-temp.name_rows_by_column(0)
-macro_rec = temp.to_records()
-
-#order by row 0
-temp = book['VEHDATA']
-temp.name_columns_by_row(0)
-vehdata_rec = temp.to_records()
-
 #order by row 0
 temp = book['Scenario_2']
 temp.name_columns_by_row(0)
 scenario_rec = temp.to_records()
 
-#order by row 0
-temp = book['Constraints']
-temp.name_columns_by_row(0)
-constraints_rec = temp.to_records()
-
-#order by row 0
-temp = book['BASEDELTA']
-temp.name_columns_by_row(0)
-Basedelta_rec = temp.to_records()
-
 #Vehicle Data - "Price" to be read as times 10000
 #Constraints - "Cost" to read as times 10000
 
-#create a list of unique OEM names
-oems=[]
+#s0 = sum of each sj
 s0 = 0.0
 for eachrec in scenario_rec:
     s0+=eachrec['sj']
 s0 = 1 - s0
 sums = {}
 
+#DELTA CALCULATION FOLLOWED BY SHARE CALCULATION
+#create a list of unique OEM names
+oems=[]
 for eachrec in scenario_rec:
     delta = 0.0
     if eachrec['oem'] not in oems:
@@ -71,6 +51,8 @@ for eachrec in scenario_rec:
     #delta = np.log(eachrec['sj']) - np.log(s0)- eachrec['alpha'] * eachrec['price'] - (1 - eachrec['phi']) * np.log(eachrec['sj']/eachrec['sfu']) - (1 - eachrec['rho']) * np.log(eachrec['sfu']/eachrec['sb']) - (1 - eachrec['sigma']) * np.log(eachrec['sb']/eachrec['st'])
         
     eachrec['delta'] = delta
+    
+    #needs to be done every iteration
     eachrec['vj'] = delta + eachrec['alpha'] * eachrec['price_2']
     
     #Here calculate everything thats needed to calculate share
@@ -108,9 +90,9 @@ for eachrec in scenario_rec:
     eachrec['new_shares'] = (eachrec['e_vj_phi'] * np.power(sums['sum_basegroup'+str(eachrec['fuGroupId'])],(eachrec['phi']/eachrec['rho']-1)) * np.power(sums['sum_subgroup'+str(eachrec['tGroupId'])],(eachrec['rho']/eachrec['sigma']-1)) * np.power(sums['sum_group'+str(eachrec['bGroupId'])],(eachrec['sigma']-1))) / (np.power(sums['sum_group'+str(eachrec['bGroupId'])],eachrec['sigma'])+1)
     print (eachrec['modname'], eachrec['new_shares'], eachrec['new_shares']*eachrec['population'])
     print('\n')
-## MARKET CLEARANCE PART
+
 '''
-Repear stuff from above with changed parameters?
+Repeat stuff from above with changed parameters?
 Maybe do this n times and reduce the gap between predicted and what clears the
 market?
 #'''
