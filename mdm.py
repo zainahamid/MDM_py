@@ -18,8 +18,6 @@ scenario = np.asarray(dict['Scenario'])
 book = pyexcel.get_book(file_name="Input_Data.xls")
 startYear = 2015
 endYear = 2016
-normalFactor = 3000.0 * 1000.0
-numVolumeVar = 1
 num_of_iterations = 2
 gamma = 0.1
 #omiga = 0.93
@@ -32,7 +30,6 @@ scenario_rec = temp.to_records()
 #Vehicle Data - "Price" to be read as times 10000
 #Constraints - "Cost" to read as times 10000
 
-#s0 = sum of each sj
 for year in range (startYear, endYear+1):
     
     print('%%%$$$%%%$$$%%%$$$')
@@ -40,6 +37,7 @@ for year in range (startYear, endYear+1):
     print('%%%$$$%%%$$$%%%$$$')
     print('\n')
     
+    #s0 = sum of each sj
     s0 = 0.0
     for eachrec in scenario_rec:
         s0+=eachrec['sj']
@@ -153,7 +151,7 @@ for year in range (startYear, endYear+1):
                     if eachrec['oem'] == each_oem:
                         test_prices[eachrec['modname']].append({'prices':eachrec['price_2'],'demand':eachrec['new_shares']*eachrec['population'], 'optimal':res['x'][matched_rec], 'bounds': bnds[matched_rec]})
                         factor = -1 * int(np.log10(abs(res['x'][matched_rec] - eachrec['new_shares']*eachrec['population'])))
-                        factor_2 = 0.1 * 10**factor * -1 * (res['x'][matched_rec] - eachrec['new_shares']*eachrec['population'])
+                        factor_2 = gamma * 10**factor * -1 * (res['x'][matched_rec] - eachrec['new_shares']*eachrec['population'])
                         print(eachrec['modname'])
                         print('Demand',eachrec['new_shares']*eachrec['population'])
                         print('Optimal',res['x'][matched_rec])
@@ -167,8 +165,7 @@ for year in range (startYear, endYear+1):
                                 eachrec['price_2'] = test_prices[eachrec['modname']][-2]['prices']
                                 eachrec['new_shares'] = test_prices[eachrec['modname']][-2]['demand']/eachrec['population']
                                 #make current prices same as old prices
-                                #make current demand same as old demand
-                                
+                                #make current demand same as old demand 
                             else:
                                 eachrec['price_2']+=factor_2         
                         else:
