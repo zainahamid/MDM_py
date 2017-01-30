@@ -19,7 +19,7 @@ book = pyexcel.get_book(file_name="Input_Data.xls")
 startYear = 2015
 normalFactor = 3000.0 * 1000.0
 numVolumeVar = 1
-num_of_iterations = 1
+num_of_iterations = 10
 gamma = 0.1
 #omiga = 0.93
 
@@ -36,67 +36,72 @@ s0 = 0.0
 for eachrec in scenario_rec:
     s0+=eachrec['sj']
 s0 = 1 - s0
-sums = {}
 
 #DELTA CALCULATION FOLLOWED BY SHARE CALCULATION
 #create a list of unique OEM names
 oems=[]
-for eachrec in scenario_rec:
-    delta = 0.0
-    if eachrec['oem'] not in oems:
-        oems.append(eachrec['oem'])
-        
-    delta = eachrec['phi'] * np.log(eachrec['sj']) + (eachrec['rho'] - eachrec['phi']) * np.log(eachrec['sfu']) + (eachrec['sigma'] - eachrec['rho']) * np.log(eachrec['st']) + (1 - eachrec['sigma']) * np.log(eachrec['sb']) - np.log(s0) - eachrec['alpha'] * eachrec['price']
-    #another formula to solve delta
-    #delta = np.log(eachrec['sj']) - np.log(s0)- eachrec['alpha'] * eachrec['price'] - (1 - eachrec['phi']) * np.log(eachrec['sj']/eachrec['sfu']) - (1 - eachrec['rho']) * np.log(eachrec['sfu']/eachrec['sb']) - (1 - eachrec['sigma']) * np.log(eachrec['sb']/eachrec['st'])
-        
-    eachrec['delta'] = delta
-    
-    #needs to be done every iteration
-    eachrec['vj'] = delta + eachrec['alpha'] * eachrec['price_2']
-    
-    #Here calculate everything thats needed to calculate share
-    eachrec['e_vj_phi'] = np.exp(eachrec['vj']/eachrec['phi'])
-    key = 'sum_basegroup' + str(eachrec['fuGroupId'])
-    if key not in sums.keys():
-        sums[key] = 0.0
-    sums[key] += eachrec['e_vj_phi']
-   
-#after the end of this loop sum_base is calculated for all the 5 base groups
-    
-#another loop for each value in the sum of base_groups over phi & rho and then their sum
-visited = {}
-for eachrec in scenario_rec:
-    key2 = 'sum_subgroup' + str(eachrec['tGroupId'])
-    if key2 not in sums.keys():
-        sums[key2] = 0.0
-    if 'sum_basegroup'+str(eachrec['fuGroupId']) not in visited.keys():
-        sums[key2] += np.power(sums['sum_basegroup'+str(eachrec['fuGroupId'])],(eachrec['phi']/eachrec['rho']))
-        visited['sum_basegroup'+str(eachrec['fuGroupId'])] = True
-        
-#another loop for each value in the sum of sub groups over rho & sigma and their sums
-visited = {}
-for eachrec in scenario_rec:
-    key2 = 'sum_group' + str(eachrec['bGroupId'])
-    if key2 not in sums.keys():
-        sums[key2] = 0.0
-    if 'sum_subgroup'+str(eachrec['tGroupId']) not in visited.keys():
-        sums[key2] += np.power(sums['sum_subgroup'+str(eachrec['tGroupId'])],(eachrec['rho']/eachrec['sigma']))
-        visited['sum_subgroup'+str(eachrec['tGroupId'])] = True
-
-
-#share calculation to be verified    
-for eachrec in scenario_rec:
-    eachrec['new_shares'] = (eachrec['e_vj_phi'] * np.power(sums['sum_basegroup'+str(eachrec['fuGroupId'])],(eachrec['phi']/eachrec['rho']-1)) * np.power(sums['sum_subgroup'+str(eachrec['tGroupId'])],(eachrec['rho']/eachrec['sigma']-1)) * np.power(sums['sum_group'+str(eachrec['bGroupId'])],(eachrec['sigma']-1))) / (np.power(sums['sum_group'+str(eachrec['bGroupId'])],eachrec['sigma'])+1)
-    print (eachrec['modname'], eachrec['new_shares'], eachrec['new_shares']*eachrec['population'])
-    print('\n')
-
-'''
-Repeat stuff from above with changed parameters?
-Maybe do this n times and reduce the gap between predicted and what clears the
-market?
-#'''
+test_prices={}
 for i in range (num_of_iterations):
+    sums={}
+    for eachrec in scenario_rec:
+        if 'delta' not in eachrec.keys():
+            delta = 0.0
+        if eachrec['oem'] not in oems:
+            oems.append(eachrec['oem'])
+            
+        delta = eachrec['phi'] * np.log(eachrec['sj']) + (eachrec['rho'] - eachrec['phi']) * np.log(eachrec['sfu']) + (eachrec['sigma'] - eachrec['rho']) * np.log(eachrec['st']) + (1 - eachrec['sigma']) * np.log(eachrec['sb']) - np.log(s0) - eachrec['alpha'] * eachrec['price']
+        #another formula to solve delta
+        #delta = np.log(eachrec['sj']) - np.log(s0)- eachrec['alpha'] * eachrec['price'] - (1 - eachrec['phi']) * np.log(eachrec['sj']/eachrec['sfu']) - (1 - eachrec['rho']) * np.log(eachrec['sfu']/eachrec['sb']) - (1 - eachrec['sigma']) * np.log(eachrec['sb']/eachrec['st'])
+            
+        eachrec['delta'] = delta
+        
+        #needs to be done every iteration
+        eachrec['vj'] = delta + eachrec['alpha'] * eachrec['price_2']
+        if eachrec['modname'] not in test_prices.keys():
+            test_prices[eachrec['modname']] = list()
+        
+        #Here calculate everything thats needed to calculate share
+        eachrec['e_vj_phi'] = np.exp(eachrec['vj']/eachrec['phi'])
+        key = 'sum_basegroup' + str(eachrec['fuGroupId'])
+        if key not in sums.keys():
+            sums[key] = 0.0
+        sums[key] += eachrec['e_vj_phi']
+       
+    #after the end of this loop sum_base is calculated for all the 5 base groups
+        
+    #another loop for each value in the sum of base_groups over phi & rho and then their sum
+    visited = {}
+    for eachrec in scenario_rec:
+        key2 = 'sum_subgroup' + str(eachrec['tGroupId'])
+        if key2 not in sums.keys():
+            sums[key2] = 0.0
+        if 'sum_basegroup'+str(eachrec['fuGroupId']) not in visited.keys():
+            sums[key2] += np.power(sums['sum_basegroup'+str(eachrec['fuGroupId'])],(eachrec['phi']/eachrec['rho']))
+            visited['sum_basegroup'+str(eachrec['fuGroupId'])] = True
+            
+    #another loop for each value in the sum of sub groups over rho & sigma and their sums
+    visited = {}
+    for eachrec in scenario_rec:
+        key2 = 'sum_group' + str(eachrec['bGroupId'])
+        if key2 not in sums.keys():
+            sums[key2] = 0.0
+        if 'sum_subgroup'+str(eachrec['tGroupId']) not in visited.keys():
+            sums[key2] += np.power(sums['sum_subgroup'+str(eachrec['tGroupId'])],(eachrec['rho']/eachrec['sigma']))
+            visited['sum_subgroup'+str(eachrec['tGroupId'])] = True
+    
+    
+    #share calculation to be verified    
+    for eachrec in scenario_rec:
+        eachrec['new_shares'] = (eachrec['e_vj_phi'] * np.power(sums['sum_basegroup'+str(eachrec['fuGroupId'])],(eachrec['phi']/eachrec['rho']-1)) * np.power(sums['sum_subgroup'+str(eachrec['tGroupId'])],(eachrec['rho']/eachrec['sigma']-1)) * np.power(sums['sum_group'+str(eachrec['bGroupId'])],(eachrec['sigma']-1))) / (np.power(sums['sum_group'+str(eachrec['bGroupId'])],eachrec['sigma'])+1)
+        print (eachrec['modname'], eachrec['new_shares'], eachrec['new_shares']*eachrec['population'])
+        print('\n')
+    
+    '''
+    Repeat stuff from above with changed parameters?
+    Maybe do this n times and reduce the gap between predicted and what clears the
+    market?
+    #'''
+
     for each_oem in oems:
         
         flag = 0
@@ -130,9 +135,35 @@ for i in range (num_of_iterations):
         if res['success']:
             for each_res in range(len(res['x'])):
                 avg += A[0][each_res] * res['x'][each_res]
-            print (avg / sum_q)
-        print (each_oem, res['x'], C, A, B, bnds)
-        print('\n')
+            print ('Average CAFE value: ', avg / sum_q)
+            print (each_oem, res['x'], C, A, B, bnds)
+            print('\n')
+            
+            print ('OEM: ',each_oem)
+            matched_rec=0
+            for eachrec in scenario_rec:
+                if eachrec['oem'] == each_oem:
+                    test_prices[eachrec['modname']].append({'prices':eachrec['price_2'],'demand':eachrec['new_shares']*eachrec['population'], 'optimal':res['x'][matched_rec], 'bounds': bnds[matched_rec]})
+                    factor = -1 * int(np.log10(abs(res['x'][matched_rec] - eachrec['new_shares']*eachrec['population'])))
+                    factor_2 = 0.1 * 10**factor * -1 * (res['x'][matched_rec] - eachrec['new_shares']*eachrec['population'])
+#                   if res['x'][matched_rec] - (eachrec['new_shares']*eachrec['population']) > 0:
+#                        factor_2=-1
+                    print(eachrec['modname'])
+                    print('Demand',eachrec['new_shares']*eachrec['population'])
+                    print('Optimal',res['x'][matched_rec])
+                    print('bounds',bnds[matched_rec] )
+                    print ('factor', factor)
+                    print ('factor_2', factor_2)
+                    print('Old Price:', eachrec['price_2'])                
+                    eachrec['price_2']+=factor_2 
+                    print('New Price:', eachrec['price_2'])
+                    print('\n')
+                    matched_rec+=1
+                
+                
+        
+        #check now qopt from C, and qdem from the demand model, change price_2 and recalculate demand and opt
+        #repeat number of iterations times and check the each_rec
         
 #        
 #        s0+=eachrec['sj']
