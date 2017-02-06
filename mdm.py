@@ -17,8 +17,8 @@ scenario = np.asarray(dict['Scenario'])
 
 book = pyexcel.get_book(file_name="Input_Data.xls")
 startYear = 2015
-endYear = 2016
-num_of_iterations = 2
+endYear = 2015
+num_of_iterations = 100
 gamma = 0.1
 #omiga = 0.93
 
@@ -31,6 +31,7 @@ scenario_rec = temp.to_records()
 #Constraints - "Cost" to read as times 10000
 
 for year in range (startYear, endYear+1):
+    gamma = 0.1
     
     print('%%%$$$%%%$$$%%%$$$')
     print(year)
@@ -48,6 +49,7 @@ for year in range (startYear, endYear+1):
     oems=[]
     test_prices={}
     for i in range (num_of_iterations):
+        gamma = gamma *0.9
         sums={}
         for eachrec in scenario_rec:
             if 'delta' not in eachrec.keys():
@@ -151,13 +153,13 @@ for year in range (startYear, endYear+1):
                     if eachrec['oem'] == each_oem:
                         test_prices[eachrec['modname']].append({'prices':eachrec['price_2'],'demand':eachrec['new_shares']*eachrec['population'], 'optimal':res['x'][matched_rec], 'bounds': bnds[matched_rec]})
                         factor = -1 * int(np.log10(abs(res['x'][matched_rec] - eachrec['new_shares']*eachrec['population'])))
-                        factor_2 = gamma * 10**factor * -1 * (res['x'][matched_rec] - eachrec['new_shares']*eachrec['population'])
+                        factor_2 = gamma * 10**factor * (eachrec['new_shares']*eachrec['population'] - res['x'][matched_rec])
                         print(eachrec['modname'])
                         print('Demand',eachrec['new_shares']*eachrec['population'])
                         print('Optimal',res['x'][matched_rec])
                         print('bounds',bnds[matched_rec] )
-                        print ('factor', factor)
-                        print ('factor_2', factor_2)
+                        print ('gamma', gamma)
+                        print ('factor', factor_2)
                         print('Old Price:', eachrec['price_2']) 
                         #Check over here if this new demand value & optimal value difference is less OR if demand > upper bound, continue with the prev demand, prices
                         if len(test_prices[eachrec['modname']]) > 1:
@@ -193,7 +195,6 @@ for year in range (startYear, endYear+1):
         else:
             sum_st[eachrec['tGroupId']] += eachrec['sj']
             
-       
         if eachrec['bGroupId'] not in sum_sb.keys():
             sum_sb[eachrec['bGroupId']] = eachrec['sj']
         else:
@@ -204,12 +205,7 @@ for year in range (startYear, endYear+1):
         eachrec['st'] =  sum_st[eachrec['tGroupId']]
         eachrec['sb'] = sum_sb[eachrec['bGroupId']]
         
-        
-                
-                
-        
-        #check now qopt from C, and qdem from the demand model, change price_2 and recalculate demand and opt
-        #repeat number of iterations times and check the each_rec
+
         
 #        
 #        s0+=eachrec['sj']
