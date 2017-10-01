@@ -1,9 +1,8 @@
 import pyexcel
-from pyexcel.ext import xlsx
-from pyexcel.ext import xls
 import scipy.optimize as opt 
 import numpy as np
-import copy
+import xlsxwriter
+
 cafe_average =  {'domestic':60, 'Asian': 100, 'European':70}
 
 #book now contains the entire excel workbook 
@@ -16,7 +15,7 @@ scenario = np.asarray(dict['Scenario'])
 
 book = pyexcel.get_book(file_name="Input_Data.xls")
 startYear = 2015
-endYear = 2015
+endYear = 2017
 num_of_iterations = 50
 gamma = 0.1
 
@@ -39,9 +38,6 @@ def calculate_shares(scenario_rec):
             delta = 0.0
             
         delta = eachrec['phi'] * np.log(eachrec['sj']) + (eachrec['rho'] - eachrec['phi']) * np.log(eachrec['sfu']) + (eachrec['sigma'] - eachrec['rho']) * np.log(eachrec['st']) + (1 - eachrec['sigma']) * np.log(eachrec['sb']) - np.log(s0) - eachrec['alpha'] * eachrec['price']
-        #another formula to solve delta
-        #delta = np.log(eachrec['sj']) - np.log(s0)- eachrec['alpha'] * eachrec['price'] - (1 - eachrec['phi']) * np.log(eachrec['sj']/eachrec['sfu']) - (1 - eachrec['rho']) * np.log(eachrec['sfu']/eachrec['sb']) - (1 - eachrec['sigma']) * np.log(eachrec['sb']/eachrec['st'])
-            
         eachrec['delta'] = delta
         
         #needs to be done every iteration
@@ -92,7 +88,7 @@ for eachrec in scenario_rec:
     if eachrec['oem'] not in shares_oems.keys():
         shares_oems[eachrec['oem']] = copy.deepcopy(scenario_rec)
         
-
+workbook = xlsxwriter.Workbook('results.xlsx')
 for year in range (startYear, endYear+1):
     gamma = 0.1
     test_prices={}
@@ -188,13 +184,30 @@ for year in range (startYear, endYear+1):
                         
                         
     #Update all the values for the next year's calculation
+                        
+    worksheet = workbook.add_worksheet('Year_'+str(year))
+    row, col = 0, 0
+
     sum_sfu, sum_st, sum_sb = {}, {}, {}
     for eachrec in scenario_rec:
+        for record in sorted(eachrec.keys()):
+            worksheet.write(row, col, record)
+            col+=1
+        row+=1
+        break
+    
+    for eachrec in scenario_rec:
+        col = 0
         eachrec['volume'] = eachrec['new_shares']*eachrec['population']
         eachrec['price'] = eachrec['price_2']
         eachrec['sj'] = eachrec['new_shares']
         eachrec['ProdMin']=eachrec['volume'] * 0.7
         eachrec['ProdMax']=eachrec['volume'] * 1.3
+        for record in sorted(eachrec.keys()):
+            worksheet.write(row, col, eachrec[record])
+            col+=1
+        row+=1
+        
         if eachrec['fuGroupId'] not in sum_sfu.keys():
             sum_sfu[eachrec['fuGroupId']] = eachrec['sj']
         else:
@@ -214,7 +227,8 @@ for year in range (startYear, endYear+1):
         eachrec['sfu'] = sum_sfu[eachrec['fuGroupId']]
         eachrec['st'] =  sum_st[eachrec['tGroupId']]
         eachrec['sb'] = sum_sb[eachrec['bGroupId']]
-        
+workbook.close()
+    
 
         
 #        
